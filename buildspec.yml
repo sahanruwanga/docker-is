@@ -1,0 +1,84 @@
+version: 0.2
+
+env:
+  variables:
+    HELM_REPO_DIR: "/usr/helm-repo"
+    IMAGE_TAG: "5.11.0-m11"
+    TEST_DIR: "/usr/test_repo"
+
+phases:
+  install:
+    #runtime-versions:
+     # nodejs: 10
+    commands:
+      #- echo installing sops
+      #- wget https://github.com/mozilla/sops/releases/download/v3.5.0/sops_3.5.0_amd64.deb
+      #- apt install ./sops_3.5.0_amd64.deb
+      #- sops -v
+      #- echo $CODEBUILD_SRC_DIR_SourceArtifact
+      #- ls $CODEBUILD_SRC_DIR_SourceArtifact
+      #- echo Installing helm
+      #- wget https://storage.googleapis.com/kubernetes-helm/helm-v2.16.3-linux-amd64.tar.gz -O helm.tar.gz; tar -xzf helm.tar.gz
+      #- chmod +x ./linux-amd64/helm
+      #- mv ./linux-amd64/helm /usr/local/bin/helm
+      #- echo helm installation successful
+      #- echo Installing test evironment
+      #- git clone https://github.com/sahanruwanga/cypress-iam-ui-test.git $TEST_DIR
+      #- cd $TEST_DIR/iam-cloud-test-automation/iam-e2e-test/
+      #- echo install Cypress and other dependencies
+      #- npm install
+      #- npm install --save-dev cypress@4.1.0
+      #- npm install mocha --save-dev
+      #- npm install cypress-multi-reporters --save-dev
+      #- npm install mochawesome --save-dev
+      #- npm install mochawesome-merge --save-dev
+      #- npm install mochawesome-report-generator --save-dev
+      #- echo Test environment installation completed
+      #- cd $CODEBUILD_SRC_DIR
+      #- echo Cloning helm repository to $HELM_REPO_DIR 
+      #- git clone https://github.com/sahanruwanga/kubernetes-is-test.git $HELM_REPO_DIR
+      #- echo Cloning docker_is repository to $CODEBUILD_SRC_DIR 
+      #- git clone https://github.com/sahanruwanga/docker-is.git $CODEBUILD_SRC_DIR/docker_is
+  pre_build:
+    commands:
+      #- IMAGE_TAG=$(echo $(cat $CODEBUILD_SRC_DIR_SourceArtifact/info.txt | grep 'IMAGE_TAG') | cut -c11-)
+      #- DIST_URL=$(echo $(cat $CODEBUILD_SRC_DIR_SourceArtifact/info.txt | grep 'DIST_URL') | cut -c10-)
+      #- VERSION=$(echo $(cat $CODEBUILD_SRC_DIR_SourceArtifact/info.txt | grep 'VERSION') | cut -c9-)
+      #- echo $IMAGE_TAG
+      #- echo $DIST_URL
+      #- echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION)
+      - REPOSITORY_URI=610968236798.dkr.ecr.us-east-2.amazonaws.com/is-cloud-test
+      #- COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      #- IMAGE_TAG=build-$(echo $CODEBUILD_BUILD_ID | awk -F":" '{print $2}')
+      - echo Logging in to kubectl
+      - aws eks update-kubeconfig --name is-cloud-test-dev --role-arn arn:aws:iam::610968236798:role/EksCodeBuildkubectlTrustRole
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Docker image...
+      #- docker build -t $REPOSITORY_URI:$IMAGE_TAG --build-arg WSO2_SERVER_VERSION=$VERSION --build-arg WSO2_SERVER_DIST_URL=$DIST_URL dockerfiles/ubuntu/is/
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Docker images...	
+      #- docker push $REPOSITORY_URI:$IMAGE_TAG
+      - echo push successful!
+      #- echo Writing image definitions file...
+      #- printf '[{"name":"nodeapp","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
+      #- cat imagedefinitions.json
+      #- sed -i 's/{DockerTagVersion}/'"${IMAGE_TAG}"'/g' $HELM_REPO_DIR/advanced/is-pattern-1/values.yaml
+      #- sed -i 's/{ImageTag}/'"${IMAGE_TAG}"'/g' buildspec-staging-deploy.yml
+      #- echo Getting cluster nodes
+      - kubectl get nodes
+      #- echo Deleting helm template
+      #- helm template --name wso2is $HELM_REPO_DIR/advanced/is-pattern-1 | kubectl delete -f -
+      #- echo Applying helm template
+      #- helm template --name wso2is $HELM_REPO_DIR/advanced/is-pattern-1 | kubectl apply -f -
+      #- echo Executing test suit
+      #- ls && npx cypress run --headless
+
+artifacts:
+  files:
+    - buildspec-staging-deploy.yml
+

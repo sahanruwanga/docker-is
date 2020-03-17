@@ -1,0 +1,70 @@
+version: 0.2
+
+env:
+  variables:
+    HELM_REPO_DIR: "/usr/helm-repo"
+    IMAGE_TAG: "{ImageTag}"
+    TEST_DIR: "/usr/test_repo"
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 10
+    commands:
+      #- echo installing sops
+      #- wget https://github.com/mozilla/sops/releases/download/v3.5.0/sops_3.5.0_amd64.deb
+      #- apt install ./sops_3.5.0_amd64.deb
+      #- sops -v
+      #- echo Installing helm
+      #- wget https://storage.googleapis.com/kubernetes-helm/helm-v2.16.3-linux-amd64.tar.gz -O helm.tar.gz; tar -xzf helm.tar.gz
+      #- chmod +x ./linux-amd64/helm
+      #- mv ./linux-amd64/helm /usr/local/bin/helm
+      #- echo helm installation successful
+      #- echo Cloning helm repository to $HELM_REPO_DIR 
+      #- git clone https://wso2-iam-bot:$HELM_REPO_AT@github.com/wso2-iam-bot/iam-cloud-deployment-helm-charts.git $HELM_REPO_DIR
+# test environment installation
+      - echo Installing test evironment
+      - git clone https://wso2-iam-bot:$HELM_REPO_AT@github.com/wso2-iam-bot/iam-cloud-tests.git $TEST_DIR
+      - cd $TEST_DIR/org.wso2.iam.cloud.e2e.test
+      - echo install Cypress and other dependencies
+      #- npm install
+      - npm install --save-dev cypress@4.1.0
+      - npm install mocha --save-dev
+      - npm install cypress-multi-reporters --save-dev
+      - npm install mochawesome --save-dev
+      - npm install mochawesome-merge --save-dev
+      - npm install mochawesome-report-generator --save-dev
+      - echo Test environment installation completed
+      #- cd ../ && npm install
+      - cd $CODEBUILD_SRC_DIR
+# Test environment installation finished
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region us-east-1)
+      - REPOSITORY_URI=610968236798.dkr.ecr.us-east-1.amazonaws.com/is-cloud
+      - echo Logging in to kubectl
+      - aws eks update-kubeconfig --name CIAM-Cloud-EKS-Cluster --region us-east-1 --role-arn arn:aws:iam::610968236798:role/EksCodeBuildkubectlTrustRole
+  build:
+    commands:
+      - echo no build happens
+  post_build:
+    commands:
+      #- export SOPS_KMS_ARN=arn:aws:kms:us-east-2:610968236798:key/55658f08-031a-4af1-8677-c23b6188674d
+      #- sops -d $HELM_REPO_DIR/wso2is/values.encrypted.yaml > $HELM_REPO_DIR/wso2is/values.yaml
+      #- sed -i 's/{DockerTagVersion}/'"${IMAGE_TAG}"'/g' $HELM_REPO_DIR/wso2is/values.yaml
+      - echo Deleting helm template
+      #- helm template --name wso2is $HELM_REPO_DIR/wso2is --namespace iam-cloud | kubectl delete -f - -n iam-cloud
+      #- echo Applying helm template
+      #- helm template --name wso2is $HELM_REPO_DIR/wso2is --namespace iam-cloud | kubectl apply -f - -n iam-cloud
+      - kubectl get po -n iam-cloud
+# Test suite execution
+      - echo Executing test suit
+      #- cd $TEST_DIR/org.wso2.iam.cloud.sample-application/sample-saml-sso
+      #- npm start
+      #- sleep 60
+      - cd $TEST_DIR/org.wso2.iam.cloud.e2e.test
+      - npm run test
+      - mkdir reports
+      - zip -r reports/reports.zip $TEST_DIR/org.wso2.iam.cloud.e2e.test/cypress/reports/.
+      - aws s3 sync reports/. s3://is-cloud-codepipeline-test-source
